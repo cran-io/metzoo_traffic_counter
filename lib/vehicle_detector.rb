@@ -32,6 +32,20 @@ SECOND = 1
 	@adc_threshold_first =  @adc_first.read.to_i
 	@adc_threshold_second = @adc_second.read.to_i
 
+	@base_first = 1000
+	@vals_first = []
+	@in_first = false
+	100.times{@vals_first.<<(1000)}
+	@prev_first = 1
+	@n1 = 0
+
+	@base_second = 1000
+	@vals_second = []
+	@in_second = false
+	100.times{@vals_second.<<(1000)}
+	@prev_second = 1
+	@n2 = 0
+
 	@SENSONRS_DIST = 1
 end
 
@@ -51,7 +65,7 @@ def looper
         sem_adc.synchronize do
           	if detect(FIRST)
 				sensor_a << Time.now.to_f
-      			@d.print("Entro al primer sensor")
+      			@d.print("Entro al primer sensor ")
 				p sensor_a	
           	end
 
@@ -60,8 +74,11 @@ def looper
           		yield 0, 0, true
           	end
         end
+        sleep 0.0001
       end
     }
+
+    thread_1.priority = 11
 
     thread_2 = Thread.new {
       loop do
@@ -93,17 +110,20 @@ def looper
 					end
         		end
 
-    		end 
+    		end
+    		sleep 0.0001
 
 	end
 
 
+
     }
+    thread_2.priority = 11
     #[thread_1, thread_2].each(&:join)
 	
 	loop do
 		#p "Detector still alive"
-		#sleep 10.1	
+		sleep 10.1	
 	end
 end
 
@@ -122,32 +142,73 @@ end
   end
 
 
-	def detect(sensor)		
+	def detect(sensor)	
+		ret = false	
 		case sensor
 			when FIRST
 				value_first = @adc_first.read.to_i
-				
-				if !@flag_first && value_first > (@adc_threshold_first + 2)  
-					@flag_first = true
-					return true
-				elsif @flag_first &&  value_first < (@adc_threshold_first + 1)
-					@flag_first = false
+				val = (value_first + @prev_first) / 2.0
+				if !@in_first && (value_first/@base_first > 1.23)
+					ret = true
+					@in_first=true
+					#p "r " + (value_first/@base_first).to_s
+
+				elsif @in_first == true
+					if (value_first/@base_first < 1.03)
+						@in_first = 5
+					end
+				elsif @in_first && @in_first != true
+					if (value_first/@base_first < 1.03)
+						@in_first -= 1
+						@in_first = false if @in_first == 0
+					end
+				else
+					#p((value_first/@base_first).to_s) if @n1 % 100 == 0
+					@n1+=1
+
 				end
+
+				@prev_first = value_first
+				@vals_first << value_first
+				@vals_first.delete_at 0
+				@base_first = @vals_first.inject{ |sum, el| sum + el }.to_f / @vals_first.size
+
 				
-				return false
 
 			when SECOND
 				value_second = @adc_second.read.to_i
+				val = (value_second + @prev_second) / 2.0
+				if !@in_second && (value_second/@base_second > 1.23)
+					ret = true
+					@in_second=true
+					#p "r " + (value_second/@base_second).to_s
 
-				if !@flag_second && value_second > (@adc_threshold_second + 2)  
-					@flag_second = true
-					return true
-				elsif @flag_second &&  value_second < (@adc_threshold_second + 1)
-					@flag_second = false
+				elsif @in_second == true
+					if (value_second/@base_second < 1.03)
+						@in_second = 5
+					end
+				elsif @in_second && @in_second != true
+					if (value_second/@base_second < 1.03)
+						@in_second -= 1
+						@in_second = false if @in_second == 0
+					end
+				else
+					#p((value_second/@base_second).to_s) if @n2 % 100 == 0
+					@n2+=1
+
 				end
+
+				@prev_second = value_second
+				@vals_second << value_second
+				@vals_second.delete_at 0
+				@base_second = @vals_second.inject{ |sum, el| sum + el }.to_f / @vals_second.size
+
 				
-				return false
+
+				
 		end
+
+		ret
 	
 	end
 

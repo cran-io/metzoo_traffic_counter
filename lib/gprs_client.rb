@@ -15,11 +15,12 @@ class Debug
 end
 
 class GPRSClient
-	def initialize 
+	def initialize (conditional)
 		`echo uart1 > /sys/devices/bone_capemgr.9/slots`
 		@gprs_comm = UART.new(1)
 		@d = Debug.new(1)
 
+		
 		`stty -echo -clocal -F /dev/ttyO1`
 		
 		#POWER and RESET pins init
@@ -70,6 +71,7 @@ class GPRSClient
 					if attach
 						@d.print("attach")
 						ready = true
+						conditional.signal
 					else
 						fails +=1
 					end
@@ -163,15 +165,17 @@ class GPRSClient
 		begin 
 				Timeout::timeout(timeout) do
 				while !@gprs_comm.readfile.ready?
+					sleep 0.001
 				end
 				
 				loop do
 				
 					input_string = @gprs_comm.readline
-					#p "    " + input_string
+					p "    " + input_string
 					if input_string.include?(expected_string)
 						return true
 					end
+					sleep 0.0001;
 					
 				end
 			end

@@ -32,7 +32,9 @@ timers = Timers.new
 Agent = "cb100391-d4d9-48d2-a11c-a11ca918c38f"
 
 new_traffic_event = ConditionVariable.new
+attach_event = ConditionVariable.new
 sem = Mutex.new
+attach_sem = Mutex.new
 
 
 Thread.abort_on_exception = true
@@ -51,13 +53,16 @@ gps_thread = Thread.new do
  				time != 0 ? new_coordinates = true : new_coordinates = false
  			end
  		end
+ 	sleep 0.001
  	end
 end
 
 
-
- 	
+	
 traffic_count_thread = Thread.new do
+	attach_sem.synchronize do
+					attach_event.wait(attach_sem)
+	end
 	vd = VehicleDetector.new
 	vd.looper do |speed,length, time_flag|
 		p "Vehicle detected, speed: " + speed.to_s + ", length: " + length.to_s
@@ -85,9 +90,12 @@ traffic_count_thread = Thread.new do
  			end
 	end
 end
+traffic_count_thread.priority = 10
+
+
  
 gprs_thread = Thread.new do
- 	@client = GPRSClient.new
+ 	@client = GPRSClient.new(attach_event)
  	loop do	
  		sem.synchronize do
  			new_traffic_event.wait(sem)
@@ -102,11 +110,12 @@ gprs_thread = Thread.new do
 
  		end
  		if(new_coordinates)
- 			@client.post("http://api.metzoo.com/metric", [["Trafic_counter", time.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
-			@client.post("http://api.metzoo.com/metric", [["Trafic_counter_location", time.to_i, [latitude, longitude]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
- 			@client.post("http://api.metzoo.com/metric", [["Trafic_counter_speed", time.to_i, [aux_speed_car, aux_speed_truck,aux_speed_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
+ 		#	@client.post("http://api.metzoo.com/metric", [["Trafic_counter", time.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
+		#	@client.post("http://api.metzoo.com/metric", [["Trafic_counter_location", time.to_i, [latitude, longitude]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
+ 		#	@client.post("http://api.metzoo.com/metric", [["Trafic_counter_speed", time.to_i, [aux_speed_car, aux_speed_truck,aux_speed_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
 
  		end
+ 	sleep 0.001
  	end
 end
 
