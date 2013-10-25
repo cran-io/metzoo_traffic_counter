@@ -13,121 +13,93 @@ class Debug
 end
 
 
-
 class VehicleDetector
 
 FIRST = 0
 SECOND = 1
 
- def initialize
+ 	def initialize
 		
-	@d = Debug.new(1)
+		@d = Debug.new(1)
 
-	@flag_first = false
-	@flag_second = false	
+		@flag_first = false
+		@flag_second = false	
 
-	@adc_first = ADC.new(0)
-	@adc_second= ADC.new(1)
-	
-	@adc_threshold_first =  @adc_first.read.to_i
-	@adc_threshold_second = @adc_second.read.to_i
+		@adc_first = ADC.new(0)
+		@adc_second= ADC.new(1)
+		
+		@adc_threshold_first =  @adc_first.read.to_i
+		@adc_threshold_second = @adc_second.read.to_i
 
-	@base_first = 1000
-	@vals_first = []
-	@in_first = false
-	100.times{@vals_first.<<(1000)}
-	@prev_first = 1
-	@n1 = 0
+		@base_first = 1000
+		@vals_first = []
+		@in_first = false
+		100.times{@vals_first.<<(1000)}
+		@prev_first = 1
+		@n1 = 0
 
-	@base_second = 1000
-	@vals_second = []
-	@in_second = false
-	100.times{@vals_second.<<(1000)}
-	@prev_second = 1
-	@n2 = 0
+		@base_second = 1000
+		@vals_second = []
+		@in_second = false
+		100.times{@vals_second.<<(1000)}
+		@prev_second = 1
+		@n2 = 0
 
-	@SENSONRS_DIST = 1
-end
+		@SENSONRS_DIST = 1
 
-def looper	
-
-	sensor_a = [] 
-	sensor_b = []
-    
-	delta_time = Time.now
-	sensor_delta_time = Time.now
+		@sensor_a = [] 
+		@sensor_b = []
+	    
+		@delta_time = Time.now
+		@sensor_delta_time = Time.now
+	end
 
 
-    sem_adc = Mutex.new
-	
-    thread_1 = Thread.new {
-      loop do
-        sem_adc.synchronize do
-          	if detect(FIRST)
-				sensor_a << Time.now.to_f
-      			@d.print("Entro al primer sensor ")
-				p sensor_a	
-          	end
+	def looper	
+		loop do	
+			if detect(FIRST)
+				@sensor_a << Time.now.to_f
+				p "Entro al primer sensor " + @sensor_a.to_s
+		  	end
 
-          	if Time.now - delta_time > 59
-          		delta_time = Time.now
-          		yield 0, 0, true
-          	end
-        end
-        sleep 0.0001
-      end
-    }
+		  	if detect(SECOND) 
+				@sensor_b << Time.now.to_f 
+				p "Entro al segundo sensor" + @sensor_b.to_s
+			end
 
-    thread_1.priority = 11
-
-    thread_2 = Thread.new {
-      loop do
-			sem_adc.synchronize do
-				if detect(SECOND) 
-					sensor_b << Time.now.to_f 
-					@d.print("Entro al segundo sensor")
-					p sensor_b
-          		end
+			if Time.now - @delta_time > 59
+		  		@delta_time = Time.now
+		  		yield 0, 0, true
+		  	end
 
 
-				if sensor_b.count > 1 
-					valid , speed, length = vehicle_type(sensor_a, sensor_b)
-		 
-            		if valid 
-						yield speed, length, false
-              			delta_time = Time.now
-       		   		end
-   		   			
-   		   			sensor_a = []
-					sensor_b = []
-          		end
+			if @sensor_b.count > 1 
+				valid , speed, length = vehicle_type(@sensor_a, @sensor_b)
 
-          		if Time.now - sensor_delta_time > 5 
-        			sensor_delta_time = Time.now
-        			if (sensor_b.count - sensor_a.count).abs > 1 || Time.now.to_f - sensor_a.last.to_f > 4
-	        			sensor_a = [] 
-						sensor_b = []
-					end
-        		end
+				if valid 
+					yield speed, length, false
+			  		@delta_time = Time.now
+		   		end
+			   			
+			   	@sensor_a = []
+				@sensor_b = []
+			end
 
-    		end
-    		sleep 0.0001
-
+			if Time.now - @sensor_delta_time > 1
+				@sensor_delta_time = Time.now
+				if (@sensor_b.count - @sensor_a.count).abs > 1 || Time.now.to_f - @sensor_a.last.to_f > 4
+					@sensor_a = [] 
+					@sensor_b = []
+				end
+			end
+			sleep 0.0001
+		end
 	end
 
 
 
-    }
-    thread_2.priority = 11
-    #[thread_1, thread_2].each(&:join)
-	
-	loop do
-		#p "Detector still alive"
-		sleep 10.1	
-	end
-end
 
-  def vehicle_type(sensor_a, sensor_b)
+ def vehicle_type(sensor_a, sensor_b)
     dt_a = sensor_b[0].to_f - sensor_a[0].to_f
     dt_b = sensor_b[1].to_f - sensor_a[1].to_f
 
@@ -148,7 +120,7 @@ end
 			when FIRST
 				value_first = @adc_first.read.to_i
 				val = (value_first + @prev_first) / 2.0
-				if !@in_first && (value_first/@base_first > 1.23)
+				if !@in_first && (val/@base_first > 1.21)
 					ret = true
 					@in_first=true
 					#p "r " + (value_first/@base_first).to_s
@@ -178,7 +150,7 @@ end
 			when SECOND
 				value_second = @adc_second.read.to_i
 				val = (value_second + @prev_second) / 2.0
-				if !@in_second && (value_second/@base_second > 1.23)
+				if !@in_second && (val/@base_second > 1.21)
 					ret = true
 					@in_second=true
 					#p "r " + (value_second/@base_second).to_s
@@ -202,9 +174,6 @@ end
 				@vals_second << value_second
 				@vals_second.delete_at 0
 				@base_second = @vals_second.inject{ |sum, el| sum + el }.to_f / @vals_second.size
-
-				
-
 				
 		end
 
@@ -231,4 +200,3 @@ class ADC
         return value
   end
 end
-

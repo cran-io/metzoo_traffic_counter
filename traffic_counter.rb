@@ -29,7 +29,9 @@ car_speed = truck_speed = bicycle_speed = 0
 delta_time = Time.now
 timers = Timers.new
 
-Agent = "cb100391-d4d9-48d2-a11c-a11ca918c38f"
+#Agent = "cb100391-d4d9-48d2-a11c-a11ca918c38f"
+#Agent = "20fc3226-7d42-4324-8ea0-b45ee7bd4f61"
+Agent = "f4a6e290-e2b5-4cf9-bf1c-3127b17ef0db"
 
 new_traffic_event = ConditionVariable.new
 attach_event = ConditionVariable.new
@@ -109,12 +111,12 @@ gprs_thread = Thread.new do
  			car_speed = truck_speed = bicycle_speed = 0
 
  		end
- 		if(new_coordinates)
- 		#	@client.post("http://api.metzoo.com/metric", [["Trafic_counter", time.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
-		#	@client.post("http://api.metzoo.com/metric", [["Trafic_counter_location", time.to_i, [latitude, longitude]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
- 		#	@client.post("http://api.metzoo.com/metric", [["Trafic_counter_speed", time.to_i, [aux_speed_car, aux_speed_truck,aux_speed_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
+ 		#if(new_coordinates)
+ 			@client.post("http://api.metzoo.com/metric", [["Trafic_counter", time.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
+			@client.post("http://api.metzoo.com/metric", [["Trafic_counter_location", time.to_i, [latitude, longitude]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
+ 			@client.post("http://api.metzoo.com/metric", [["Trafic_counter_speed", time.to_i, [aux_speed_car, aux_speed_truck,aux_speed_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
 
- 		end
+ 		#end
  	sleep 0.001
  	end
 end
