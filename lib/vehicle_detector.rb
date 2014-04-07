@@ -1,0 +1,3 @@
+class VehicleDetector
+
+end
