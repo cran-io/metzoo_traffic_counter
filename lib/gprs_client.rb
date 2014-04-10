@@ -1,10 +1,11 @@
+require 'gpio'
 class GPRSClient
 
 	def initialize(baudrate=0)
 		@gprs_comm = UART.new(1, 1)
 		
-		@reset_pin = OutputPin.new(:pin => 17, :mode => :out)
-		@on_off_pin = OutputPin.new(:pin => 18, :mode => :out )
+		@reset_pin = GPIO::OutputPin.new(:pin => 17, :mode => :out)
+		@on_off_pin = GPIO::OutputPin.new(:pin => 18, :mode => :out )
 		
 		state = :init_state																			#States of the init state machine 
 		fails	=	0																						#Flag to check the fails

@@ -1,6 +1,6 @@
 require 'json'
 require 'time'
-require 'timer'
+require 'timers'
 require 'io/wait'
 require 'thread'
 
