@@ -3,9 +3,20 @@ class GPRSClient
 
 	def initialize(baudrate=0)
 		@gprs_comm = UART.new(1, 1)
+
+		@reset_pin = 139
+		@on_off_pin = 144
+
+		File.open('/sys/class/gpio/export','w'){|a| a.write(@reset_pin.to_s)}
+		File.open('/sys/class/gpio/export','w'){|a| a.write(@on_off_pin.to_s)}
 		
-		@reset_pin = GPIO::OutputPin.new(:pin => 17, :mode => :out)
-		@on_off_pin = GPIO::OutputPin.new(:pin => 18, :mode => :out )
+		File.open('/sys/class/gpio/gpio#{@reset_pin}/direction','w'){|a| a.write('out')}
+		File.open('/sys/class/gpio/gpio#{@on_off_pin}/direction','w'){|a| a.write('out')}
+
+		File.open('/sys/class/gpio/gpio#{@reset_pin}/value','w'){|a| a.write(0.to_s)}
+		File.open('/sys/class/gpio/gpio#{@on_off_pin}/value','w'){|a| a.write(0.to_s)}
+
+		
 		
 		state = :init_state																			#States of the init state machine 
 		fails	=	0																								#Flag to check the fails
@@ -48,10 +59,10 @@ class GPRSClient
 	end
 	
 	def reset
-	
-		@reset_pin.on
+		
+		File.open('/sys/class/gpio/gpio#{@reset_pin}/value','w'){|a| a.write(1.to_s)}
 		sleep 1.2
-		@reset_pin.off
+		File.open('/sys/class/gpio/gpio#{@reset_pin}/value','w'){|a| a.write(0.to_s)}
 		sleep 2
 
 		@gprs_comm.writeline("AT+CIPSTATUS")
@@ -70,9 +81,10 @@ class GPRSClient
 	end
 	
 	def power
-		@on_off_pin.on
+		
+		File.open('/sys/class/gpio/gpio#{@on_off_pin}/value','w'){|a| a.write(1.to_s)}
 		sleep 1.2
-		@on_off_pin.off
+		File.open('/sys/class/gpio/gpio#{@on_off_pin}/value','w'){|a| a.write(0.to_s)}
 		sleep 2
 	
 		empty_buff
@@ -89,7 +101,7 @@ class GPRSClient
 	
 		begin 
 			Timeout::timeout(timeout.to_i) do
-				while !@gprs_comm.ready?
+				while !@gprs_comm.readfile.ready?
 				end
 			end
 
@@ -231,6 +243,9 @@ class GPRSClient
 end
 
 class UART
+	attr_accessor :readfile
+	attr_accessor :writefile
+
   def initialize(baudrate, number)
     path="/dev/ttyO" + number.to_s
     @readfile = File.open(path, "r")
