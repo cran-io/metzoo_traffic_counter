@@ -34,6 +34,7 @@ class GPRSClient
 		File.open("/sys/class/gpio/gpio#{@reset_pin}/value","w"){|a| a.write(0.to_s)}
 		File.open("/sys/class/gpio/gpio#{@on_off_pin}/value","w"){|a| a.write(0.to_s)}
 
+		@d.print("pin settings ok")
 		
 		
 		state = :init_state																			#States of the init state machine 
@@ -45,14 +46,18 @@ class GPRSClient
 		@password = "clarogprs999"
 		@url = "cranio-api-tester.herokuapp.com/somethings"
 		
+		@d.print("state machine start")
+
 		#Starts init
 		while !ready
 		
 			reset() && fails = 0 if fails == 3
+			@d.print("Fails = #{fails}")
 			
 			case state
 				when :init_state
 					if power
+						@d.print("POWER ok")
 						state = :attach_state
 					else 
 						fails += 1
@@ -60,6 +65,7 @@ class GPRSClient
 					
 				when :attach_state	
 					if attach
+						@d.print("attach ok")
 						state = :init_http_state
 						fails=0
 					else
@@ -68,6 +74,7 @@ class GPRSClient
 					
 				when :init_http_state
 					if initHTTP
+						@d.print("http ok")
 						ready = true
 					else
 						fails += 1
@@ -77,7 +84,7 @@ class GPRSClient
 	end
 	
 	def reset
-		
+		@d.print('RESET')
 		File.open("/sys/class/gpio/gpio#{@reset_pin}/value","w"){|a| a.write(1.to_s)}
 		sleep 1.2
 		File.open("/sys/class/gpio/gpio#{@reset_pin}/value","w"){|a| a.write(0.to_s)}
@@ -95,23 +102,40 @@ class GPRSClient
 		empty_buff
 		
 		@gprs_comm.writeline("ATE0")
-		return wait_resp(3, "OK")
+		isok = wait_resp(3, "OK")
+		if isok
+			@d.print('RESET OK')
+			return true
+		else
+			@d.print('RESET todo mal')
+			return false
+		end
 	end
 	
 	def power
-		
+		@d.print('power method start')
 		File.open("/sys/class/gpio/gpio#{@on_off_pin}/value","w"){|a| a.write(1.to_s)}
 		sleep 1.2
 		File.open("/sys/class/gpio/gpio#{@on_off_pin}/value","w"){|a| a.write(0.to_s)}
 		sleep 2
+		@d.print('power pin settings ok')
 	
 		empty_buff
-		@gprs_comm.writeline("AT&F0");
+		@d.print('empty buff ok')		
+		@gprs_comm.writeline("AT&F0")
 		wait_resp(3,"OK")
-		
+		@d.print('power AT&F0 OK')
+
 		empty_buff
-		@gprs_comm.writeline("ATE0");
-		return wait_resp(3,"OK")
+		@gprs_comm.writeline("ATE0")
+		isok =  wait_resp(3,"OK")
+		if isok
+			@d.print('POWER OK')
+			return true
+		else
+			@d.print('POWER todo mal')
+			return false
+		end
 	 
 	end
 	
@@ -123,6 +147,7 @@ class GPRSClient
 				end
 				loop do
 					input_string = @gprs_comm.readline
+					p "    " + input_string
 					if input_string.include?(expected_string)
 						return true
 					end
@@ -134,48 +159,62 @@ class GPRSClient
 	
 	end
 		
-	def empty_buff
-		@gprs_comm.writeline("")
+	def empty_buff	
+		@d.print('empty_buff start')
+		wait_resp(1, "HOla") 
+		@d.print('empty_buff end')
 	end
 	
 	def attach
+		@d.print("attach function")
 		sleep 2
 		empty_buff
 
+		@d.print("attatch ATEO")
 		@gprs_comm.writeline("ATE0")									#Disable echo
 		if !wait_resp(1, "OK")
-				return false
-		end			
-
-	  @gprs_comm.writeline("AT+CIFSR")								#Get Local IP Address 
-	  if !wait_resp(5,"ERROR")
-	  
+			return false
+		end		
+		
+		@d.print("attatch AT+CIFSR")
+	
+	  	@gprs_comm.writeline("AT+CIFSR")								#Get Local IP Address 
+	  	if !wait_resp(5,"ERROR")
+	  		@d.print("AT+CIFSR OK")
 			@gprs_comm.writeline("AT+CIPCLOSE")					#Close TCP or UDP Connection 
 			wait_resp(5,"ERROR") 
 			sleep 2
 			@gprs_comm.writeline("AT+CIPSERVER=0") 		#Configure Module as server. <mode> = close server
 			wait_resp(5,"ERROR") 
 			return true 
-	  end
-		
+	 	end
+		empty_buff
+		@d.print("AT+CIFSR ERROR")		
+		@d.print("AT+CIPSHUT")	
 		@gprs_comm.writeline("AT+CIPSHUT") 						#Deactivate GPRS PDP Context
 		if !wait_resp(1, "SHUT OK")
+			@d.print("AT+CIPSHUT todo mal")
 			return false
 		end
 		
+		@d.print("AT+CIPSHUT ok")
+
 		sleep 1
-		@gprs_comm.writeline(" AT+CSTT=\"#{@apn }\",\"#{@user_name}\",\"#{@password}\"\r ")   
+		@gprs_comm.writeline(" AT+CSTT=\"#{@apn}\",\"#{@user_name}\",\"#{@password}\"\r ")   
 		if !wait_resp(1,"OK")
 			return false 
+			@d.print("AT+CSTT  todo mal")
 		end
-		
+		@d.print("AT+CSTT  ok")
+
+	
 		sleep 5
 		@gprs_comm.writeline("AT+CIICR")   
 		if !wait_resp(10, "OK")
 			return false 
 		end
 		
-	  sleep 1
+	  	sleep 1
 		@gprs_comm.writeline("AT+CIFSR") 
 		if !wait_resp(5, "ERROR")
 			@gprs_comm.writeline("AT+CDNSCFG=\"8.8.8.8\",\"8.8.4.4\"") 
