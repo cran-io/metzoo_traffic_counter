@@ -73,12 +73,14 @@ timers.every(10) do
 		aux_car, car_count 					= rand(10), 0
 		aux_truck, truck_count 			= rand(10), 0
 		aux_bicycle, bicycle_count 	= rand(10), 0
-		@client.post url,{:name=>'hola2',:some_value=>2.0,:some_other_value=>3.5}.to_json
+		begin
+			a = @client.post url,{:content_type => :json, :accept => :json, :name=>'hola2',:some_value=>2.0,:some_other_value=>3.5}.to_json
+			sleep 1
+		end while !a
 	end
 end
 
 loop { timers.wait }
-
 def new_data_type(data_count, data_type)
 	{
 		:id => "Contador #{data_type}",

@@ -269,11 +269,17 @@ class GPRSClient
 		empty_buff
 		 
 		#headers.each do |headers|
+		
 		@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{url}\"\r") 
 		if !wait_resp(1, "OK")
 				return false 
 		end
-				
+		
+		@gprs_comm.writeline("AT+HTTPPARA=\"CONTENT\",\"application/json\"\r") 
+		if !wait_resp(1, "OK")
+				return false 
+		end
+		
 		length_data = data.length	
 		@gprs_comm.writeline("AT+HTTPDATA=#{length_data},40000\r");
 		if !wait_resp(1, "DOWNLOAD")
