@@ -4,6 +4,8 @@ class GPRSClient
 	def initialize(baudrate=0)
 		@gprs_comm = UART.new(1, 1)
 
+		exec 'sttyO1 -echo -clocal -F /dev/ttyO1'
+
 		@reset_pin = 139
 		@on_off_pin = 144
 
