@@ -8,7 +8,7 @@ class GPRSClient
 		@on_off_pin = GPIO::OutputPin.new(:pin => 18, :mode => :out )
 		
 		state = :init_state																			#States of the init state machine 
-		fails	=	0																						#Flag to check the fails
+		fails	=	0																								#Flag to check the fails
 		ready = false
 		
 		@apn = "igprs.claro.com.ar"
@@ -89,18 +89,16 @@ class GPRSClient
 	
 		begin 
 			Timeout::timeout(timeout.to_i) do
-				while !@gprs_comm.ready? 						# NO METHOD ready? for UART
+				while !@gprs_comm.ready?
 				end
 			end
-		
 
-			input_string = gprs_comm.readline
+			input_string = @gprs_comm.readline
 			if input_string.include?(expected_string)
 				return true
 			else
 				return false
 			end
-			
 		rescue Timeout::Error
 			return false
 		end
@@ -111,9 +109,7 @@ class GPRSClient
 		@gprs_comm.writeline("")
 	end
 	
-	def attach 
-
-		
+	def attach
 		sleep 2
 		empty_buff
 
@@ -132,13 +128,11 @@ class GPRSClient
 			wait_resp(5000,"ERROR") 
 			return true 
 	  end
-
 		
 		@gprs_comm.writeline("AT+CIPSHUT") 						#Deactivate GPRS PDP Context
 		if !wait_resp(1000, "SHUT OK")
 			return false
 		end
-
 		
 		sleep 1
 		@gprs_comm.writeline(" AT+CSTT=\"#{@apn }\",\"#{@user_name}\",\"#{@password}\"\r ")   
@@ -146,35 +140,27 @@ class GPRSClient
 			return false 
 		end
 		
-		 sleep 5 
-	  
+		sleep 5
 		@gprs_comm.writeline("AT+CIICR")   
 		if !wait_resp(10000, "OK")
 			return false 
 		end
 		
-	  sleep 1 
-
-
+	  sleep 1
 		@gprs_comm.writeline("AT+CIFSR") 
 		if !wait_resp(5000, "ERROR")
-		
-			
 			@gprs_comm.writeline("AT+CDNSCFG=\"8.8.8.8\",\"8.8.4.4\"") 
 			if wait_resp(5000,"OK")
 				return true 
 			else
 				return false 
 			end
-		
 		end
 		
 		return false 
 	end
 	
 	def initHTTP
-		
-		
 		sleep 1 
 		empty_buff
 
@@ -212,18 +198,15 @@ class GPRSClient
 	end
 	
 	def post(url, data)
+		empty_buff
 		 
-		 empty_buff
-		 
-		 #headers.each do |headers|
-			
-			
-		@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{@url}\"\r") 
+		#headers.each do |headers|
+		@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{url}\"\r") 
 		if !wait_resp(500, "OK")
 				return false 
 		end
 				
-		length_data = data.length.to_s		
+		length_data = data.length	
 		@gprs_comm.writeline("AT+HTTPDATA=#{length_data},40000\r");
 		if !wait_resp(500, "DOWNLOAD")
 				return false
@@ -244,9 +227,7 @@ class GPRSClient
 		end
 
 		return true
-		
 	end
-	
 end
 
 class UART

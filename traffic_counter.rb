@@ -1,6 +1,5 @@
 require 'json'
 require 'time'
-require 'timers'
 require 'io/wait'
 require 'thread'
 
@@ -8,18 +7,15 @@ require './lib/gprs_client'
 require './lib/gps'
 require './lib/vehicle_detector'
 
-
 CAR_LENGTH_THRESHOLD = 1.5
 TRUCK_LENGTH_THRESHOLD = 3
 
-
-latitude = 0
-longitude = 0
+latitude = longitude = 0
 new_coordinates = false
+car_count = truck_count = bicycle_count = 0
+delta_time = Time.now
 
-car_count = 0
-truck_count = 0
-bicycle_count = 0
+url = 'http://api.metzoo.com/custom_metric'
 
 new_traffic_event = ConditionVariable.new
 
@@ -41,8 +37,14 @@ traffic_count_thread = Thread.new do
 	VehicleDetector.new(1,2) do |speed,length|
 		sem.synchronize do
 			# According to length, increment the corresponding counter
+			truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD
+			car_count 		+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
+			bicycle_count += 1 if length < CAR_LENGTH_THRESHOLD
 
-			new_traffic_event.signal
+			if Time.now - delta_time > 59
+				delta_time = Time.now
+				new_traffic_event.signal
+			end
 		end
 	end
 end
@@ -53,13 +55,24 @@ gprs_thread = Thread.new do
 	loop do
 		sem.synchronize {
 			new_traffic_event.wait(sem)
+			aux_car, car_count 					= car_count, 0
+			aux_truck, truck_count 			= truck_count, 0
+			aux_bicycle, bicycle_count 	= bicycle_count, 0
 		}
-		if new_ev
-			@client.post @url,{},{}
-		end
-
+		@client.post url,[[aux_car, "Autos"], [aux_truck, "Camiones"], [aux_bicycle, "Bicicletas"]].map { |data_count, data_type| new_data_type(data_count, data_type)}.to_json,{:content_type=>:json, :"Agent-Key" => "603d718b-11ce-4ad0-b15e-0fbfc7be998f"}
 	end
 end
 
-
 [gprs_thread,gps_thread,traffic_count_thread].each{|t| t.join}
+
+def new_data_type(data_count, data_type)
+	{
+		:id => "Contador #{data_type}",
+		:description => "Cantidad de #{data_type}",
+		:submetrics => ["#{data_count}"],
+		:y_title => data_type,
+		:polling_interval => 60,
+		:enabled => true,
+		:read_only => false
+	}
+end

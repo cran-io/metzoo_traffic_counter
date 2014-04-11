@@ -3,19 +3,33 @@ require 'thread'
 class VehicleDetector
 
   def initialize(file1_n, file2_n, &block)
-    @sensor_a = []
-    @sensor_b = []
+    sensor_a = sensor_b = []
+    @SENSONRS_DIST = 1
+    delta_time = Time.now
+
+    sem = Mutex.new
     thread_1 = Thread.new {
       loop do
-        if vehicle_detected(file1_n)
-          @sensor_a << Time.now.to_f
+        sem.synchronize do
+          if vehicle_detected(file1_n)
+            sensor_a << Time.now
+          end
         end
       end
     }
     thread_2 = Thread.new {
       loop do
-        if vehicle_detected(file2_n)
-          @sensor_b << Time.now.to_f
+        sem.synchronize do
+          if vehicle_detected(file2_n)
+            sensor_b << Time.now
+          end
+
+          if sensor_b.count > 1
+            if vehicle_type(sensor_a, sensor_b) || Time.now - delta_time > 5
+              sensor_a = sensor_b = []
+              delta_time = Time.now
+            end
+          end
         end
       end
     }
@@ -29,15 +43,15 @@ class VehicleDetector
     !data.to_i.zero?
   end
 
-  def vehicle_type
-    @sensor_a.zip(@sensor_b).each_slice(2) do |values|
-      pair_a = values[0]
-      pair_b = values[1]
-      dt_a = pair_a.last - pair_a.first
-      dt_b = pair_b.last - pair_b.first
-      if dt_a.similar_to? dt_b
-        return dt_a * SENSONRS_DIST / (pair_b.first - pair_a.first)
-      end
+  def vehicle_type(sensor_a, sensor_b)
+    dt_a = sensor_b.first - sensor_a.first
+    dt_b = sensor_a.last - sensor_b.last
+    if (dt_a - dt_b).abs < 0.5
+      length = (sensor_a.last - sensor_a.first) * @SENSONRS_DIST / dt_a
+      speed = @SENSONRS_DIST / dt_a
+      yield speed, length
+      return true
     end
+    false
   end
 end
