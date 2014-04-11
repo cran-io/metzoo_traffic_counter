@@ -68,12 +68,12 @@ url = "cranio-api-tester.herokuapp.com/somethings"
 # [gprs_thread,gps_thread,traffic_count_thread].each{|t| t.join}
 
 @client = GPRSClient.new
-timers.every(60) do
+timers.every(10) do
 	loop do
 		aux_car, car_count 					= rand(10), 0
 		aux_truck, truck_count 			= rand(10), 0
 		aux_bicycle, bicycle_count 	= rand(10), 0
-		@client.post url,[[aux_car, "Autos"], [aux_truck, "Camiones"], [aux_bicycle, "Bicicletas"]].map { |data_count, data_type| new_data_type(data_count, data_type)}.to_json,{:content_type=>:json, :"Agent-Key" => "603d718b-11ce-4ad0-b15e-0fbfc7be998f"}
+		@client.post url,{:name=>'hola2',:some_value=>2.0,:some_other_value=>3.5}.to_json
 	end
 end
 
