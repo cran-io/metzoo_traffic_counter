@@ -42,9 +42,9 @@ class GPRSClient
 		@apn = "igprs.claro.com.ar"
 		@user_name = "clarogprs"
 		@password = "clarogprs999"
-		@url = "cranio-api-tester.herokuapp.com/somethings"
+		@url = "23.23.141.68"
 		
-		@ip_address = ""
+		@ip_address = "www.google.com"
 		@port = "80"
 		
 		@d.print("state machine start")
@@ -247,25 +247,32 @@ class GPRSClient
 	end
 		
 	def empty_buff	
-		@d.print('empty_buff start')
 		wait_resp(1, "HOla") 
-		@d.print('empty_buff end')
 	end
 	
 	def post(data)
 		empty_buff
 		
+		@d.print("Post start")
+
 		length_data = data.length		
 		@gprs_comm.writeline(" AT+CIPSEND=#{length_data}")   
 		if !wait_resp(10,">")
+			@d.print("Length send fail")
 			return false 
 		end
 		
+		@d.print("Length send ok")
+
 		@gprs_comm.writeline("data")   
 		if !wait_resp(10,"SEND OK")
+			@d.print("Data send fail")
 			return false 
 		end
+
+		@d.print("Data send ok")
 		
+		return true
 		
 	end
 end
