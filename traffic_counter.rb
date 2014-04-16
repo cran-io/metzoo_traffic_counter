@@ -74,7 +74,7 @@ timers.every(10) do
 		aux_truck, truck_count 			= rand(10), 0
 		aux_bicycle, bicycle_count 	= rand(10), 0
 		begin
-			a = @client.post url,{:content_type => :json, :accept => :json, :name=>'hola2',:some_value=>2.0,:some_other_value=>3.5}.to_json
+			a = @client.post 'http://api.metzoo.com/custom_metric',[{:id=>"Sarasa",:description=>"Un valor de algo",:submetrics=>["La posta"],:scale=>1,:y_title=>'sarasa',:polling_interval=>60,:enabled=>true,:read_only=>false},{:id=>"Temp",:description=>"Un valor de algo",:submetrics=>["La posta"],:scale=>1,:y_title=>'teeemp',:polling_interval=>60,:enabled=>true,:read_only=>false}].to_json
 			sleep 1
 		end while !a
 	end

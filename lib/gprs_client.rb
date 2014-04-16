@@ -159,10 +159,8 @@ class GPRSClient
 	
 	end
 		
-	def empty_buff	
-		@d.print('empty_buff start')
+	def empty_buff
 		wait_resp(1, "HOla") 
-		@d.print('empty_buff end')
 	end
 	
 	def attach
@@ -242,10 +240,10 @@ class GPRSClient
 				return false 
 		end
 
-		@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{@url}\"\r") 
-		if !wait_resp(1, "OK")
-				return false 
-		end
+		#@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{@url}\"\r") 
+		#if !wait_resp(1, "OK")
+		#		return false 
+		#end
 					
 		@gprs_comm.writeline("AT+SAPBR=3,1,\"Contype\",\"GPRS\"") 	
 		if !wait_resp(1, "OK")
@@ -279,6 +277,12 @@ class GPRSClient
 		if !wait_resp(1, "OK")
 				return false 
 		end
+
+		#@gprs_comm.writeline("AT+HTTPPARA=\"UA\",\"603d718b-11ce-4ad0-b15e-0fbfc7be998f\"\r") 
+		#if !wait_resp(1, "OK")
+		#		return false 
+		#end
+
 		
 		length_data = data.length	
 		@gprs_comm.writeline("AT+HTTPDATA=#{length_data},40000\r");
