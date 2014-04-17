@@ -70,7 +70,7 @@ url = "cranio-api-tester.herokuapp.com/somethings"
 @client = GPRSClient.new
 timers.every(10) do
 	
-			a = @client.post ({:name=>'hola2',:some_value=>2.0,:some_other_value=>3.5}.to_json)
+			a = @client.post ({:name=>'hola7',:some_value=>2.0,:some_other_value=>3.5}.to_json)
 end
 
 loop { timers.wait }

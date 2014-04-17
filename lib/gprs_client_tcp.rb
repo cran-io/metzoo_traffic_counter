@@ -42,9 +42,9 @@ class GPRSClient
 		@apn = "igprs.claro.com.ar"
 		@user_name = "clarogprs"
 		@password = "clarogprs999"
-		@url = "23.23.141.68"
+		@url = "cranio-api-tester.herokuapp.com/somethings"
 		
-		@ip_address = "www.google.com"
+		@ip_address = "http://cranio-api-tester.herokuapp.com"
 		@port = "80"
 		
 		@d.print("state machine start")
@@ -66,12 +66,20 @@ class GPRSClient
 					
 				when :attach_state	
 					if attach
-						@d.print("attach")
-						ready = true
+						@d.print("attach ok")
+						state = :init_http_state
+						fails=0
 					else
 						fails +=1
 					end
 					
+				when :init_http_state
+					if initHTTP
+						@d.print("http ok")
+						ready = true
+					else
+						fails += 1
+					end					
 			end
 		end
 	end
@@ -80,7 +88,7 @@ class GPRSClient
 			@d.print("attach function")
 			ip_flag = false	
 							
-			 #Selects Single-connection mode	
+			#Selects Single-connection mode	
 			@gprs_comm.writeline("AT+CIPMUX=0")								
 					if !wait_resp(1, "OK")
 						return false
@@ -198,6 +206,43 @@ class GPRSClient
 			return false
 		end
 	end
+
+	def initHTTP
+		sleep 1 
+		empty_buff
+
+		@gprs_comm.writeline("AT+HTTPINIT") 
+		if !wait_resp(1, "OK")
+				return false
+		end			
+
+		@gprs_comm.writeline("AT+HTTPPARA=\"CID\",1") 
+		if !wait_resp(1, "OK")
+				return false 
+		end
+
+		@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{@url}\"\r") 
+		if !wait_resp(1, "OK")
+				return false 
+		end
+					
+		@gprs_comm.writeline("AT+SAPBR=3,1,\"Contype\",\"GPRS\"") 	
+		if !wait_resp(1, "OK")
+				return false 
+		end
+		
+		@gprs_comm.writeline("AT+SAPBR=3,1,\"APN\",\"#{@apn}\"\r") 	
+		if !wait_resp(1, "OK")
+				return false 
+		end
+		
+		@gprs_comm.writeline("AT+SAPBR=1,1") 		
+		if !wait_resp(1, "OK")
+				return false 
+		end
+		
+		return true 
+	end
 	
 	def power
 		@d.print('power method start')
@@ -255,16 +300,31 @@ class GPRSClient
 		
 		@d.print("Post start")
 
-		length_data = data.length		
-		@gprs_comm.writeline(" AT+CIPSEND=#{length_data}")   
-		if !wait_resp(10,">")
-			@d.print("Length send fail")
-			return false 
-		end
-		
-		@d.print("Length send ok")
 
-		@gprs_comm.writeline("data")   
+
+		length_data = data.length
+		
+		#@gprs_comm.writeline("AT+CIPSEND=#{length_data}")   
+		#if !wait_resp(10,">")
+		#	@d.print("Length send fail")
+		#	return false 
+		#end
+		
+		#@d.print("Length send ok")
+
+		#@gprs_comm.writeline("data")
+
+		@gprs_comm.writeline("POST /somethings HTTP/1.1\r")
+		sleep 1
+		@gprs_comm.writeline("Host: cranio-api-tester.herokuapp.com\r")
+		sleep 1
+		@gprs_comm.writeline("Content-Type: application/json\r")
+		sleep 1
+		@gprs_comm.writeline("Content-Length: #{length_data}\r")
+		sleep 1
+		@gprs_comm.writeline("\r")
+		sleep 1
+		@gprs_comm.writeline("data\r")     
 		if !wait_resp(10,"SEND OK")
 			@d.print("Data send fail")
 			return false 
