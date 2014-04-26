@@ -1,5 +1,6 @@
-require "gpio"
-require "timeout"
+require 'json'
+require 'timeout'
+require 'io/wait'
 
 class Debug
 	def initialize(enable=0)
@@ -14,25 +15,28 @@ class Debug
 end
 
 class GPRSClient
-
-	def initialize(baudrate=0)
-		@gprs_comm = UART.new(1, 1)
+	def initialize 
+		`echo uart1 > /sys/devices/bone_capemgr.9/slots`
+		@gprs_comm = UART.new(1)
 		@d = Debug.new(1)
 
 		@d.print("initialize")
 		`stty -echo -clocal -F /dev/ttyO1`
-
-		@reset_pin = 139
-		@on_off_pin = 144
-
-		File.open("/sys/class/gpio/export","w"){|a| a.write(@reset_pin.to_s)}
-		File.open("/sys/class/gpio/export","w"){|a| a.write(@on_off_pin.to_s)}
 		
-		File.open("/sys/class/gpio/gpio#{@reset_pin}/direction","w"){|a| a.write("out")}
-		File.open("/sys/class/gpio/gpio#{@on_off_pin}/direction","w"){|a| a.write("out")}
+		#POWER and RESET pins init
+		@pin_power = 71
+		@pin_reset = 70
+		
+		File.open("/sys/class/gpio/export","w"){|a| a.write(@pin_power)}
+		File.open("/sys/class/gpio/export","w"){|a| a.write(@pin_reset)}
+		sleep 2
+	
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/direction","w"){|a| a.write("out")}
+		File.open("/sys/class/gpio/gpio#{@pin_power}/direction","w"){|a| a.write("out")}
 
-		File.open("/sys/class/gpio/gpio#{@reset_pin}/value","w"){|a| a.write(0.to_s)}
-		File.open("/sys/class/gpio/gpio#{@on_off_pin}/value","w"){|a| a.write(0.to_s)}
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(0.to_s)}
+		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(0.to_s)}
+
 
 		@d.print("pin settings ok")
 		
@@ -44,7 +48,8 @@ class GPRSClient
 		@apn = "igprs.claro.com.ar"
 		@user_name = "clarogprs"
 		@password = "clarogprs999"
-		@url = "cranio-api-tester.herokuapp.com/somethings"
+		
+		@port = "80"
 		
 		@d.print("state machine start")
 
@@ -65,254 +70,225 @@ class GPRSClient
 					
 				when :attach_state	
 					if attach
-						@d.print("attach ok")
-						state = :init_http_state
-						fails=0
+						@d.print("attach")
+						ready = true
 					else
 						fails +=1
 					end
 					
-				when :init_http_state
-					if initHTTP
-						@d.print("http ok")
-						ready = true
-					else
-						fails += 1
-					end
 			end
 		end
 	end
 	
+	def attach	
+			@d.print("attach function")
+			attach_at_commands = [	"AT+CPIN?", 
+														"AT+CREG?", 
+														"AT+CGATT?", 
+														"AT+CIPSHUT", 
+														"AT+CIPSTATUS", 
+														"AT+CIPMUX=0", 
+														"AT+CSTT=\"igprs.claro.com.ar\",\"clarogprs\",\"clarogprs999\"", 
+														"AT+CIICR", 
+														"AT+CIFSR"] 
+			
+			attach_at_response =  [	"OK",
+														"OK",
+														"OK",
+														"SHUT OK",
+														"IP INITIAL",
+														"OK",
+														"OK",
+														"OK",
+														".",]
+														
+			attach_at_commands.each_with_index do  |item, index|
+				@gprs_comm.writeline(item)
+				if !wait_resp(8,attach_at_response[index])
+					@d.print(item)
+					return false 
+					
+				end
+			end
+			
+		end
+	
 	def reset
 		@d.print('RESET')
-		File.open("/sys/class/gpio/gpio#{@reset_pin}/value","w"){|a| a.write(1.to_s)}
+		
+		#Set reset pin
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(1.to_s)}
 		sleep 1.2
-		File.open("/sys/class/gpio/gpio#{@reset_pin}/value","w"){|a| a.write(0.to_s)}
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(0.to_s)}
 		sleep 2
-
-		@gprs_comm.writeline("AT+CIPSTATUS")
-		wait_resp(5,"OK")
-		empty_buff
 		
-		@gprs_comm.writeline("AT+CIPCLOSE")
-		wait_resp(3,"OK")
+		reset_at_commands = [		"AT+CIPSTATUS", 
+														"AT+CIPCLOSE", 
+														"AT&F", 
+														"ATE0" ] 
+			
+	
 		
-		@gprs_comm.writeline("AT&F")
-		wait_resp(3,"OK")
-		empty_buff
+			reset_at_commands.each do  |item|
+				@gprs_comm.writeline(item)
+				if !wait_resp(3,"OK")
+					return false 
+				end
+			end
 		
-		@gprs_comm.writeline("ATE0")
-		isok = wait_resp(3, "OK")
-		if isok
-			@d.print('RESET OK')
 			return true
-		else
-			@d.print('RESET todo mal')
-			return false
-		end
 	end
 	
 	def power
 		@d.print('power method start')
-		File.open("/sys/class/gpio/gpio#{@on_off_pin}/value","w"){|a| a.write(1.to_s)}
+		
+		#Turn on pin power
+		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(1.to_s)}
 		sleep 1.2
-		File.open("/sys/class/gpio/gpio#{@on_off_pin}/value","w"){|a| a.write(0.to_s)}
+		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(0.to_s)}
 		sleep 2
-		@d.print('power pin settings ok')
-	
-		empty_buff
-		@d.print('empty buff ok')		
-		@gprs_comm.writeline("AT&F0")
-		wait_resp(3,"OK")
-		@d.print('power AT&F0 OK')
+		
+		reset_at_commands = [		"AT&F0", 
+														"ATE0", 
+														"AT&F", 
+														"ATE0" ] 
 
-		empty_buff
-		@gprs_comm.writeline("ATE0")
-		isok =  wait_resp(3,"OK")
-		if isok
-			@d.print('POWER OK')
+			reset_at_commands.each do  |item|
+				@gprs_comm.writeline(item)
+				if !wait_resp(3,"OK")
+					return false 
+				end
+			end
+			
 			return true
-		else
-			@d.print('POWER todo mal')
-			return false
-		end
-	 
 	end
 	
 	def wait_resp(timeout, expected_string)
 	
 		begin 
-			Timeout::timeout(timeout.to_i) do
+				Timeout::timeout(timeout) do
 				while !@gprs_comm.readfile.ready?
 				end
+				
 				loop do
+				
 					input_string = @gprs_comm.readline
 					p "    " + input_string
 					if input_string.include?(expected_string)
 						return true
 					end
+					
 				end
 			end
+			
 		rescue Timeout::Error
 			return false
 		end
 	
 	end
 		
-	def empty_buff
+	def empty_buff	
 		wait_resp(1, "HOla") 
 	end
 	
-	def attach
-		@d.print("attach function")
-		sleep 2
+	def post(url, data, headers)
 		empty_buff
-
-		@d.print("attatch ATEO")
-		@gprs_comm.writeline("ATE0")									#Disable echo
-		if !wait_resp(1, "OK")
-			return false
-		end		
 		
-		@d.print("attatch AT+CIFSR")
+		url_split = url.split("//")
+		url_split = url_split[1].split("/")
+		
+		headers_arr = "POST /#{url_split[1]} HTTP/1.1\nHost: #{url_split[0]}\nContent-Length: #{data.length}\nAccept: json\n"
+		
+		headers.each do |key, value|
+			
+			headers_arr += "#{key.to_s}: #{value.to_s}\n"
 	
-	  	@gprs_comm.writeline("AT+CIFSR")								#Get Local IP Address 
-	  	if !wait_resp(5,"ERROR")
-	  		@d.print("AT+CIFSR OK")
-			@gprs_comm.writeline("AT+CIPCLOSE")					#Close TCP or UDP Connection 
-			wait_resp(5,"ERROR") 
-			sleep 2
-			@gprs_comm.writeline("AT+CIPSERVER=0") 		#Configure Module as server. <mode> = close server
-			wait_resp(5,"ERROR") 
-			return true 
-	 	end
-		empty_buff
-		@d.print("AT+CIFSR ERROR")		
-		@d.print("AT+CIPSHUT")	
-		@gprs_comm.writeline("AT+CIPSHUT") 						#Deactivate GPRS PDP Context
-		if !wait_resp(1, "SHUT OK")
-			@d.print("AT+CIPSHUT todo mal")
-			return false
 		end
 		
-		@d.print("AT+CIPSHUT ok")
-
-		sleep 1
-		@gprs_comm.writeline(" AT+CSTT=\"#{@apn}\",\"#{@user_name}\",\"#{@password}\"\r ")   
-		if !wait_resp(1,"OK")
-			return false 
-			@d.print("AT+CSTT  todo mal")
-		end
-		@d.print("AT+CSTT  ok")
-
+		total_length = data.length + headers_arr.length + headers.count + 6
 	
-		sleep 5
-		@gprs_comm.writeline("AT+CIICR")   
-		if !wait_resp(10, "OK")
-			return false 
+		@gprs_comm.writeline("AT+CIPSTART=\"TCP\",\"#{url_split[0]}\",\"#{@port}\"")
+		if !wait_resp(10,"CONNECT OK")
+					return false 
 		end
 		
-	  	sleep 1
-		@gprs_comm.writeline("AT+CIFSR") 
-		if !wait_resp(5, "ERROR")
-			@gprs_comm.writeline("AT+CDNSCFG=\"8.8.8.8\",\"8.8.4.4\"") 
-			if wait_resp(5,"OK")
-				return true 
-			else
-				return false 
-			end
+		@d.print(total_length)
+		@d.print(data.length)
+		@d.print(headers_arr.length)
+		@d.print(headers_arr + "\n" + data)
+		#@d.print(data)
+
+		@gprs_comm.writeline("AT+CIPSEND=#{total_length}")
+		sleep 3
+		@gprs_comm.write(headers_arr + "\n" + data)
+		if !wait_resp(10,"SEND OK")
+					return false 
 		end
 		
-		return false 
-	end
-	
-	def initHTTP
-		sleep 1 
-		empty_buff
+		#PARSER
 
-		@gprs_comm.writeline("AT+HTTPINIT") 
-		if !wait_resp(1, "OK")
-				return false
-		end			
+		data_response = ""
+		input_string = ""
+		char_count = 0
 
-		@gprs_comm.writeline("AT+HTTPPARA=\"CID\",1") 
-		if !wait_resp(1, "OK")
-				return false 
-		end
-
-		#@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{@url}\"\r") 
-		#if !wait_resp(1, "OK")
-		#		return false 
-		#end
+					loop do
 					
-		@gprs_comm.writeline("AT+SAPBR=3,1,\"Contype\",\"GPRS\"") 	
-		if !wait_resp(1, "OK")
-				return false 
+						input_string = @gprs_comm.readline
+						@d.print(input_string) 
+					
+						if input_string.include?("HTTP")
+							if ! input_string.include?("2")
+								return false
+							end
+
+						end
+						if input_string.include?("Content-Length")
+							char_count = input_string.split(":").last
+						end
+					
+						if input_string.include?("{") 
+							break
+						end
+					
+					
+					end
+			internal_count = 0
+			data_response += input_string
+			until internal_count >= (char_count.to_i - 3) 
+				
+				input_string = @gprs_comm.readline
+				data_response += input_string
+				internal_count += input_string.length
+				@d.print(input_string)
+				@d.print(internal_count)
+				
+			
+			end			
+			data_response += "}"
+			@d.print(data_response)	
+
+
+		
+		sleep 5
+		@gprs_comm.writeline("AT+CIPCLOSE")
+		if !wait_resp(10,"CLOSE OK")
+					@d.print("asdasd")
+					return false 
 		end
 		
-		@gprs_comm.writeline("AT+SAPBR=3,1,\"APN\",\"#{@apn}\"\r") 	
-		if !wait_resp(1, "OK")
-				return false 
-		end
-		
-		@gprs_comm.writeline("AT+SAPBR=1,1") 		
-		if !wait_resp(1, "OK")
-				return false 
-		end
-		
-		return true 
-	end
+		return data_response
 	
-	def post(url, data)
-		empty_buff
-		 
-		#headers.each do |headers|
 		
-		@gprs_comm.writeline("AT+HTTPPARA=\"URL\",\"#{url}\"\r") 
-		if !wait_resp(1, "OK")
-				return false 
-		end
-		
-		@gprs_comm.writeline("AT+HTTPPARA=\"CONTENT\",\"application/json\"\r") 
-		if !wait_resp(1, "OK")
-				return false 
-		end
-
-		#@gprs_comm.writeline("AT+HTTPPARA=\"UA\",\"603d718b-11ce-4ad0-b15e-0fbfc7be998f\"\r") 
-		#if !wait_resp(1, "OK")
-		#		return false 
-		#end
-
-		
-		length_data = data.length	
-		@gprs_comm.writeline("AT+HTTPDATA=#{length_data},40000\r");
-		if !wait_resp(1, "DOWNLOAD")
-				return false
-		end
-		
-		@gprs_comm.writeline(data)
-		if !wait_resp(1, "OK")
-				return false
-		end
-
-		@gprs_comm.writeline("AT+HTTPACTION=1")
-		if !wait_resp(5, "OK")
-			return false
-		end
-
-		if !wait_resp(20, "+HTTPACTION:1,200")
-			return false
-		end
-
-		return true
 	end
 end
+
+
 
 class UART
 	attr_accessor :readfile
 	attr_accessor :writefile
 
-  def initialize(baudrate, number)
+  def initialize(number)
     path="/dev/ttyO" + number.to_s
     @readfile = File.open(path, "r")
     @writefile = File.open(path, "w")
@@ -320,6 +296,10 @@ class UART
   
   def readline
       @readfile.gets
+  end
+	
+  def write(write_string)
+	@writefile.write(write_string.to_s)
   end
   
   def writeline(write_string)
