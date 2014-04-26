@@ -3,7 +3,7 @@ require 'timeout'
 require 'io/wait'
 
 class Debug
-	def initialize(enable=0)
+	def initialize(enable=false)
 		@enable = enable
 	end
 

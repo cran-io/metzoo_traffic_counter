@@ -4,7 +4,7 @@ require 'io/wait'
 require 'thread'
 require 'timers'
 
-require './lib/gprs_client_tcp'
+require './lib/gprs_client'
 require './lib/gps'
 require './lib/vehicle_detector'
 
@@ -13,8 +13,9 @@ TRUCK_LENGTH_THRESHOLD = 3
 
 latitude = longitude = 0
 new_coordinates = false
+aux_car = aux_truck = aux_bicycle = 0
 car_count = truck_count = bicycle_count = 0
-# delta_time = Time.now
+delta_time = Time.now
 timers = Timers.new
 
 Agent = "c13c24af-c253-458c-9579-fccc17424e03"
@@ -22,6 +23,7 @@ Agent = "c13c24af-c253-458c-9579-fccc17424e03"
 new_traffic_event = ConditionVariable.new
 
  sem = Mutex.new
+ sem2 = Mutex.new
 
 # p 'Starting GPS thread...'
 # gps_thread = Thread.new do
@@ -34,14 +36,19 @@ new_traffic_event = ConditionVariable.new
 # 	end
 # end
 
+Thread.abort_on_exception = true
+
  p 'Starting Traffic Count Algorithm...'
   traffic_count_thread = Thread.new do
- 	VehicleDetector.new(0,1) do |speed,length|
+ 	vd = VehicleDetector.new
+	STDOUT.puts "VD created"
+	vd.looper do |speed,length|
+		p "Vehicle detected, speed: " + speed.to_s + ", length: " + length.to_s
  		sem.synchronize do
  			# According to length, increment the corresponding counter
  			truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD
- 			car_count 		+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
- 			bicycle_count += 1 if length < CAR_LENGTH_THRESHOLD
+ 			car_count 	+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
+ 			bicycle_count 	+= 1 if length < CAR_LENGTH_THRESHOLD
 
  			if Time.now - delta_time > 59
  				delta_time = Time.now
@@ -55,19 +62,25 @@ new_traffic_event = ConditionVariable.new
  gprs_thread = Thread.new do
  	@client = GPRSClient.new
  	loop do
+		p "Start GPRS loop"
+		
  		sem.synchronize {
  			new_traffic_event.wait(sem)
- 			aux_car, car_count 					= car_count, 0
- 			aux_truck, truck_count 			= truck_count, 0
+ 			aux_car, car_count 		= car_count, 0
+ 			aux_truck, truck_count 		= truck_count, 0
  			aux_bicycle, bicycle_count 	= bicycle_count, 0
  		}
- 		gprs.post("http://api.metzoo.com/metric", [["Trafic_counter", Time.now.to_i, [car_count, truck_count,bicycle_count]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
-
-
+ 		@client.post("http://api.metzoo.com/metric", [["Trafic_counter", Time.now.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
+		sleep 1
+	
  	end
  end
 
- [gprs_thread,traffic_count_thread].each{|t| t.join}
+loop do
+	sleep 10
+	p	"Still alive!"
+end
+ #[gprs_thread,traffic_count_thread].each{|t| t.join}
 
 
 # @client = GPRSClient.new
@@ -83,15 +96,15 @@ new_traffic_event = ConditionVariable.new
 	# end
 # end
 
-loop { timers.wait }
-def new_data_type(data_count, data_type)
-	{
-		:id => "Contador #{data_type}",
-		:description => "Cantidad de #{data_type}",
-		:submetrics => ["#{data_count}"],
-		:y_title => data_type,
-		:polling_interval => 60,
-		:enabled => true,
-		:read_only => false
-	}
-end
+#loop { timers.wait }
+#def new_data_type(data_count, data_type)
+#	{
+#		:id => "Contador #{data_type}",
+#		:description => "Cantidad de #{data_type}",
+#		:submetrics => ["#{data_count}"],
+#		:y_title => data_type,
+#		:polling_interval => 60,
+#		:enabled => true,
+#		:read_only => false
+#	}
+#end

@@ -34,19 +34,20 @@ SECOND = 1
 
 	@d.print(@adc_threshold_first)
 	#@d.print(@adc_threshold_second)
+	@SENSONRS_DIST = 1
+end
 
-	
+def looper	
 
 	sensor_a = sensor_b = []
-    @SENSONRS_DIST = 1
+    
     delta_time = Time.now
 
-    sem = Mutex.new
+    sem1 = Mutex.new
+	
     thread_1 = Thread.new {
       loop do
-        sem.synchronize do
-	
-	sleep 0.1
+        sem1.synchronize do
           if detect(FIRST)
             sensor_a << Time.now
 		@d.print("Entro al primer sensor")	
@@ -56,27 +57,30 @@ SECOND = 1
     }
     thread_2 = Thread.new {
       loop do
-        sem.synchronize do
-	sleep 0.1
-	#@d.print(@adc_second.read.to_i)
-
           if detect(SECOND)
             sensor_b << Time.now
 		@d.print("Entro al segundo sensor")
           end
-
           if sensor_b.count > 1
-		valid , speed, length = vehicle_type(sensor_a, sensor_b) 
-		yield speed, length
-            if valid || Time.now - delta_time > 5
-              sensor_a = sensor_b = []
-              delta_time = Time.now
-            end
-          end
-        end
-      end
+		sem1.synchronize do
+			valid , speed, length = vehicle_type(sensor_a, sensor_b) 
+            		if valid || Time.now - delta_time > 5
+				yield speed, length
+              			sensor_a = sensor_b = []
+              			delta_time = Time.now
+            		end
+          	end
+           end
+      sleep 0.1
+	end
+
     }
-    [thread_1, thread_2].each(&:join)
+    #[thread_1, thread_2].each(&:join)
+	loop do
+		p "Detector still alive"
+		sleep 10.1
+ 		
+	end
   end
 
   def vehicle_type(sensor_a, sensor_b)
@@ -93,12 +97,12 @@ SECOND = 1
 
 	def detect(sensor)
 		
-		value_first = @adc_first.read.to_i
-		value_second = @adc_second.read.to_i
+		
+		
 	
 		case sensor
 			when FIRST
-
+				value_first = @adc_first.read.to_i
 				if @flag_first
 					#@d.print(value_first)
 				end
@@ -121,7 +125,7 @@ SECOND = 1
 				return false
 
 			when SECOND
-
+				value_second = @adc_second.read.to_i
 				if @flag_second
 					#@d.print(value_second)
 				end
@@ -161,7 +165,7 @@ class ADC
 
   def initialize(number)
         `echo cape-bone-iio > /sys/devices/bone_capemgr.9/slots`
-        @path="/sys/devices/ocp.3/helper.13/AIN" + number.to_s
+        @path="/sys/devices/ocp.3/helper.14/AIN" + number.to_s
   end
 
   def read
