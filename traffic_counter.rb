@@ -15,8 +15,10 @@ latitude = longitude = 0
 new_coordinates = false
 aux_car = aux_truck = aux_bicycle = 0
 car_count = truck_count = bicycle_count = 0
+auxs_car = auxs_truck = auxs_bicycle = 0
 delta_time = Time.now
 timers = Timers.new
+speed_track = speed_car = speed_bicycle = 0
 
 Agent = "c13c24af-c253-458c-9579-fccc17424e03"
 
@@ -45,9 +47,20 @@ Thread.abort_on_exception = true
 			p "Vehicle detected, speed: " + speed.to_s + ", length: " + length.to_s
  			sem.synchronize do
  				# According to length, increment the corresponding counter
- 				truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD
- 				car_count 	+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
- 				bicycle_count 	+= 1 if length < CAR_LENGTH_THRESHOLD
+ 				if length > TRUCK_LENGTH_THRESHOLD
+					truck_count += 1
+					speed_truck += speed
+				end
+				
+ 				if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
+					car_count 	+= 1 
+					speed_car += speed
+				end
+ 				
+				if length < CAR_LENGTH_THRESHOLD
+					bicycle_count 	+= 1
+					speed_bicycle += speed
+				end
 				
 				if Time.now - delta_time > 59
  					delta_time = Time.now
@@ -65,9 +78,9 @@ Thread.abort_on_exception = true
 		
  		sem.synchronize {
  			new_traffic_event.wait(sem)
- 			aux_car, car_count 		= car_count, 0
- 			aux_truck, truck_count 		= truck_count, 0
- 			aux_bicycle, bicycle_count 	= bicycle_count, 0
+ 			aux_car, car_count,auxs_car,speed_car 		= car_count, 0, speed_car,0
+ 			aux_truck, truck_count,auxs_truck,speed_truck 		= truck_count, 0,speed_truck,0
+ 			aux_bicycle, bicycle_count,auxs_bicycle,speed_bicycle  	= bicycle_count, 0, speed_bicycle, 0
  		}
  		@client.post("http://api.metzoo.com/metric", [["Trafic_counter", Time.now.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
  	end
