@@ -38,25 +38,24 @@ new_traffic_event = ConditionVariable.new
 
 Thread.abort_on_exception = true
 
- p 'Starting Traffic Count Algorithm...'
-  traffic_count_thread = Thread.new do
- 	vd = VehicleDetector.new
-	STDOUT.puts "VD created"
-	vd.looper do |speed,length|
-		p "Vehicle detected, speed: " + speed.to_s + ", length: " + length.to_s
- 		sem.synchronize do
- 			# According to length, increment the corresponding counter
- 			truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD
- 			car_count 	+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
- 			bicycle_count 	+= 1 if length < CAR_LENGTH_THRESHOLD
-
- 			if Time.now - delta_time > 59
- 				delta_time = Time.now
- 				new_traffic_event.signal
+ 	p 'Starting Traffic Count Algorithm...'
+ 	traffic_count_thread = Thread.new do
+ 		vd = VehicleDetector.new
+		vd.looper do |speed,length|
+			p "Vehicle detected, speed: " + speed.to_s + ", length: " + length.to_s
+ 			sem.synchronize do
+ 				# According to length, increment the corresponding counter
+ 				truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD
+ 				car_count 	+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
+ 				bicycle_count 	+= 1 if length < CAR_LENGTH_THRESHOLD
+				
+				if Time.now - delta_time > 59
+ 					delta_time = Time.now
+ 					new_traffic_event.signal
+ 				end
  			end
  		end
  	end
- end
 
  p 'Starting GPRS thread...'
  gprs_thread = Thread.new do
@@ -70,9 +69,7 @@ Thread.abort_on_exception = true
  			aux_truck, truck_count 		= truck_count, 0
  			aux_bicycle, bicycle_count 	= bicycle_count, 0
  		}
- 		@client.post("http://api.metzoo.com/metric", [["Trafic_counter", Time.now.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
-		sleep 1
-	
+ 		@client.post("http://api.metzoo.com/metric", [["Trafic_counter", Time.now.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
  	end
  end
 
