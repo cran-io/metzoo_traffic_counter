@@ -10,6 +10,10 @@ require './lib/vehicle_detector'
 
 CAR_LENGTH_THRESHOLD = 1.5
 TRUCK_LENGTH_THRESHOLD = 3
+MAX_LENGTH = 10
+MIN_LENGTH = 1
+
+_60_SECONDS = 59
 
 latitude = longitude = 0
 new_coordinates = false
@@ -38,38 +42,44 @@ new_traffic_event = ConditionVariable.new
 
 Thread.abort_on_exception = true
 
- 	p 'Starting Traffic Count Algorithm...'
+ 	
  	traffic_count_thread = Thread.new do
- 		vd = VehicleDetector.new
-		vd.looper do |speed,length|
-			p "Vehicle detected, speed: " + speed.to_s + ", length: " + length.to_s
- 			sem.synchronize do
- 				# According to length, increment the corresponding counter
- 				truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD
- 				car_count 	+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
- 				bicycle_count 	+= 1 if length < CAR_LENGTH_THRESHOLD
-				
-				if Time.now - delta_time > 59
- 					delta_time = Time.now
- 					new_traffic_event.signal
- 				end
- 			end
- 		end
+	 		vd = VehicleDetector.new
+			vd.looper do |speed,length, time_flag|
+				p "Vehicle detected, speed: " + speed.to_s + ", length: " + length.to_s
+	 			sem.synchronize do
+	 				# According to length, increment the corresponding counter
+	 				if !time_flag
+		 				truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD && length < MAX_LENGTH
+		 				car_count 	+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
+		 				bicycle_count 	+= 1 if length < CAR_LENGTH_THRESHOLD && length > MIN_LENGTH			
+	 				end
+	 			end
+	 		
+	 			if Time.now - delta_time > _60_SECONDS || time_flag 
+		 			delta_time = Time.now
+		 			new_traffic_event.signal
+		 		end
+
+	 		end
+
+
+		 	
  	end
 
- p 'Starting GPRS thread...'
+ 
  gprs_thread = Thread.new do
- 	@client = GPRSClient.new
- 	loop do
-		p "Start GPRS loop"
-		
+ 	#@client = GPRSClient.new
+ 	loop do	
  		sem.synchronize {
  			new_traffic_event.wait(sem)
  			aux_car, car_count 		= car_count, 0
  			aux_truck, truck_count 		= truck_count, 0
  			aux_bicycle, bicycle_count 	= bicycle_count, 0
  		}
- 		@client.post("http://api.metzoo.com/metric", [["Trafic_counter", Time.now.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
+
+ 		p [aux_car, aux_truck, aux_bicycle]
+ 		#@client.post("http://api.metzoo.com/metric", [["Trafic_counter", Time.now.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
  	end
  end
 
