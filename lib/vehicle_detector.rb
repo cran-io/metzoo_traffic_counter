@@ -55,7 +55,7 @@ def looper
 				p sensor_a	
           	end
 
-          	if Time.now - delta_time > 590
+          	if Time.now - delta_time > 59
           		delta_time = Time.now
           		yield 0, 0, true
           	end
@@ -158,7 +158,7 @@ class ADC
 
   def initialize(number)
         `echo cape-bone-iio > /sys/devices/bone_capemgr.9/slots`
-        @path="/sys/devices/ocp.3/helper.13/AIN" + number.to_s
+        @path="/sys/devices/ocp.3/helper.14/AIN" + number.to_s
   end
 
   def read

@@ -212,14 +212,12 @@ class GPRSClient
 					return false 
 		end
 		
-		@d.print(total_length)
-		@d.print(data.length)
-		@d.print(headers_arr.length)
-		@d.print(headers_arr + "\n" + data)
-		#@d.print(data)
+		
+		#@d.print(headers_arr + "\n" + data)
+		
 
 		@gprs_comm.writeline("AT+CIPSEND=#{total_length}")
-		sleep 3
+		sleep 1
 		@gprs_comm.write(headers_arr + "\n" + data)
 		if !wait_resp(10,"SEND OK")
 					return false 
@@ -234,7 +232,7 @@ class GPRSClient
 					loop do
 					
 						input_string = @gprs_comm.readline
-						@d.print(input_string) 
+						 
 					
 						if input_string.include?("HTTP")
 							if ! input_string.include?("2")
@@ -259,8 +257,7 @@ class GPRSClient
 				input_string = @gprs_comm.readline
 				data_response += input_string
 				internal_count += input_string.length
-				@d.print(input_string)
-				@d.print(internal_count)
+				
 				
 			
 			end			
@@ -269,7 +266,7 @@ class GPRSClient
 
 
 		
-		sleep 5
+		sleep 2
 		@gprs_comm.writeline("AT+CIPCLOSE")
 		if !wait_resp(10,"CLOSE OK")
 					@d.print("asdasd")

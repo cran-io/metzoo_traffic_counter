@@ -17,12 +17,18 @@ _60_SECONDS = 59
 
 latitude = longitude = time = 0
 new_coordinates = false
+
 aux_car = aux_truck = aux_bicycle = 0
 car_count = truck_count = bicycle_count = 0
+
+aux_speed_car = aux_speed_truck = aux_speed_bicycle = 0
+car_speed = truck_speed = bicycle_speed = 0
+
+
 delta_time = Time.now
 timers = Timers.new
 
-Agent = "c13c24af-c253-458c-9579-fccc17424e03"
+Agent = "cb100391-d4d9-48d2-a11c-a11ca918c38f"
 
 new_traffic_event = ConditionVariable.new
 sem = Mutex.new
@@ -57,9 +63,9 @@ traffic_count_thread = Thread.new do
 			sem.synchronize do
 				# According to length, increment the corresponding counter
 				if !time_flag
- 					truck_count 	+= 1 if length > TRUCK_LENGTH_THRESHOLD && length < MAX_LENGTH
- 					car_count 	+= 1 if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
- 					bicycle_count 	+= 1 if length < CAR_LENGTH_THRESHOLD && length > MIN_LENGTH			
+ 					truck_count += 1 && truck_speed += speed if length > TRUCK_LENGTH_THRESHOLD && length < MAX_LENGTH
+ 					car_count 	+= 1 && car_speed += speed if length > CAR_LENGTH_THRESHOLD && length < TRUCK_LENGTH_THRESHOLD
+ 					bicycle_count 	+= 1 && bicycle_speed += speed if length < CAR_LENGTH_THRESHOLD && length > MIN_LENGTH			
 				end
 			end
 		
@@ -71,17 +77,26 @@ traffic_count_thread = Thread.new do
 end
  
 gprs_thread = Thread.new do
- 	#@client = GPRSClient.new
+ 	@client = GPRSClient.new
  	loop do	
  		sem.synchronize do
  			new_traffic_event.wait(sem)
  			aux_car, car_count 		= car_count, 0
  			aux_truck, truck_count 		= truck_count, 0
  			aux_bicycle, bicycle_count 	= bicycle_count, 0
+
+ 			aux_speed_car= aux_car != 0 ? car_speed/aux_car : 0
+ 			aux_speed_truck = aux_truck != 0 ? truck_speed/aux_truck : 0
+ 			aux_speed_bicycle = aux_bicycle != 0 ? bicycle_speed/aux_bicycle : 0
+ 			car_speed = truck_speed = bicycle_speed = 0
+
  		end
- 		p [aux_car, aux_truck, aux_bicycle] 
- 		p time
- 		#@client.post("http://api.metzoo.com/metric", [["Trafic_counter", time, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
+ 		if(new_coordinates)
+ 			@client.post("http://api.metzoo.com/metric", [["Trafic_counter", time.to_i, [aux_car, aux_truck, aux_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})	
+			@client.post("http://api.metzoo.com/metric", [["Trafic_counter_location", Time.now.to_i, [latitude, longitude]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
+ 			@client.post("http://api.metzoo.com/metric", [["Trafic_counter_speed", Time.now.to_i, [aux_speed_car, aux_speed_truck,aux_speed_bicycle]]].to_json, {:"content-type"=>:"application/json",:"Agent-Key"=> Agent})
+
+ 		end
  	end
 end
 
