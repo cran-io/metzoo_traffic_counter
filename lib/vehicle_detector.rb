@@ -102,8 +102,8 @@ def looper
     #[thread_1, thread_2].each(&:join)
 	
 	loop do
-		p "Detector still alive"
-		sleep 10.1	
+		#p "Detector still alive"
+		#sleep 10.1	
 	end
 end
 
