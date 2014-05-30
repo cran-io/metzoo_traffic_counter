@@ -32,8 +32,6 @@ SECOND = 1
 	@adc_threshold_first =  @adc_first.read.to_i
 	@adc_threshold_second = @adc_second.read.to_i
 
-	@d.print(@adc_threshold_first)
-	#@d.print(@adc_threshold_second)
 	@SENSONRS_DIST = 1
 end
 
@@ -43,6 +41,8 @@ def looper
 	sensor_b = []
     
 	delta_time = Time.now
+	sensor_delta_time = Time.now
+
 
     sem_adc = Mutex.new
 	
@@ -50,10 +50,14 @@ def looper
       loop do
         sem_adc.synchronize do
           	if detect(FIRST)
-				t = Time.now
-				sensor_a << t.min*60 + t.sec + t.usec * 0.000001 
+				sensor_a << Time.now.to_f
       			@d.print("Entro al primer sensor")
 				p sensor_a	
+          	end
+
+          	if Time.now - delta_time > 59
+          		delta_time = Time.now
+          		yield 0, 0, true
           	end
         end
       end
@@ -62,23 +66,33 @@ def looper
     thread_2 = Thread.new {
       loop do
 			sem_adc.synchronize do
-				if detect(SECOND)
-            		t = Time.now
-					sensor_b << t.min*60 + t.sec + t.usec * 0.000001 
+				if detect(SECOND) 
+					sensor_b << Time.now.to_f 
 					@d.print("Entro al segundo sensor")
 					p sensor_b
           		end
-          
-				if sensor_b.count > 1
+
+
+				if sensor_b.count > 1 
 					valid , speed, length = vehicle_type(sensor_a, sensor_b)
- 
+		 
             		if valid 
-						yield speed, length
-              			sensor_a = [] 
-						sensor_b = []
+						yield speed, length, false
               			delta_time = Time.now
        		   		end
+   		   			
+   		   			sensor_a = []
+					sensor_b = []
           		end
+
+          		if Time.now - sensor_delta_time > 5 
+        			sensor_delta_time = Time.now
+        			if (sensor_b.count - sensor_a.count).abs > 1 || Time.now.to_f - sensor_a.last.to_f > 4
+	        			sensor_a = [] 
+						sensor_b = []
+					end
+        		end
+
     		end 
 
 	end
@@ -88,21 +102,23 @@ def looper
     #[thread_1, thread_2].each(&:join)
 	
 	loop do
-		p "Detector still alive"
-		sleep 10.1	
+		#p "Detector still alive"
+		#sleep 10.1	
 	end
 end
 
   def vehicle_type(sensor_a, sensor_b)
-    dt_a = sensor_b.first.to_f - sensor_a.first.to_f
-    dt_b = sensor_a.last.to_f - sensor_b.last.to_f
+    dt_a = sensor_b[0].to_f - sensor_a[0].to_f
+    dt_b = sensor_b[1].to_f - sensor_a[1].to_f
 
-    #if (dt_a - dt_b).abs < 0.5
-      length = dt_a.to_f * @SENSONRS_DIST / (sensor_a.last.to_f - sensor_a.first.to_f)
+    p "Diference sensors " + (dt_a - dt_b).abs.to_s + " " + (sensor_a[1].to_f > sensor_b[0].to_f).to_s 
+   
+    if (dt_a - dt_b).abs < 4 && sensor_a[1].to_f > sensor_b[0].to_f 
+      length = (sensor_a[1].to_f - sensor_a[0].to_f) * @SENSONRS_DIST / dt_a.to_f  
       speed = @SENSONRS_DIST.to_f / dt_a
       return true, speed, length
-    #end
-    #return false
+    end  
+    return false
   end
 
 
@@ -110,19 +126,11 @@ end
 		case sensor
 			when FIRST
 				value_first = @adc_first.read.to_i
-
-				if @flag_first &&  value_first < (@adc_threshold_first + 5)
-					@flag_first =false
-					return true
-
-				end
 				
-				if value_first > (@adc_threshold_first + 6)
+				if !@flag_first && value_first > (@adc_threshold_first + 2)  
 					@flag_first = true
-					sleep 0.2
-					#@d.print("Flag alto")
-
-				else
+					return true
+				elsif @flag_first &&  value_first < (@adc_threshold_first + 1)
 					@flag_first = false
 				end
 				
@@ -131,23 +139,14 @@ end
 			when SECOND
 				value_second = @adc_second.read.to_i
 
-				if @flag_second &&  value_second < (@adc_threshold_second + 5)
-					@flag_second =false
-					return true
-
-				end
-				
-				if value_second > (@adc_threshold_second + 6)
+				if !@flag_second && value_second > (@adc_threshold_second + 2)  
 					@flag_second = true
-					sleep 0.2
-					#@d.print("Flag alto")
-
-				else
+					return true
+				elsif @flag_second &&  value_second < (@adc_threshold_second + 1)
 					@flag_second = false
 				end
 				
 				return false
-			
 		end
 	
 	end
@@ -158,8 +157,10 @@ end
 class ADC
 
   def initialize(number)
-        `echo cape-bone-iio > /sys/devices/bone_capemgr.9/slots`
-        @path="/sys/devices/ocp.3/helper.14/AIN" + number.to_s
+    `echo cape-bone-iio > /sys/devices/bone_capemgr.9/slots`
+    `rm /home/traffic/metzoo_traffic_counter/adcs`
+   	`ln -s /sys/devices/ocp.3/helper.* /home/traffic/metzoo_traffic_counter/adcs`
+	@path="/home/traffic/metzoo_traffic_counter/adcs/AIN" + number.to_s
   end
 
   def read

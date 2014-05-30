@@ -1,0 +1,3 @@
+# Start application as daemon
+daemon --user=root --name=traffic_counter --chdir=/home/traffic/metzoo_traffic_counter --output=/home/traffic/metzoo_traffic_counter/traffic.log  /home/traffic/metzoo_traffic_counter/traffic_counter.rb
+

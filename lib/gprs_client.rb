@@ -20,7 +20,6 @@ class GPRSClient
 		@gprs_comm = UART.new(1)
 		@d = Debug.new(1)
 
-		@d.print("initialize")
 		`stty -echo -clocal -F /dev/ttyO1`
 		
 		#POWER and RESET pins init
@@ -29,16 +28,12 @@ class GPRSClient
 		
 		File.open("/sys/class/gpio/export","w"){|a| a.write(@pin_power)}
 		File.open("/sys/class/gpio/export","w"){|a| a.write(@pin_reset)}
-		sleep 2
 	
 		File.open("/sys/class/gpio/gpio#{@pin_reset}/direction","w"){|a| a.write("out")}
 		File.open("/sys/class/gpio/gpio#{@pin_power}/direction","w"){|a| a.write("out")}
 
-		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(0.to_s)}
-		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(0.to_s)}
-
-
-		@d.print("pin settings ok")
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(1.to_s)}
+		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(1.to_s)}
 		
 		
 		state = :init_state																			#States of the init state machine 
@@ -51,14 +46,17 @@ class GPRSClient
 		
 		@port = "80"
 		
-		@d.print("state machine start")
 
 		#Starts init
 		while !ready
 		
-			reset() && fails = 0 if fails == 3
-			@d.print("Fails = #{fails}")
-			
+			if fails == 4
+				reset()
+				fails = 0
+			end
+				
+				@d.print("Fails = #{fails}")
+		
 			case state
 				when :init_state
 					if power
@@ -81,7 +79,6 @@ class GPRSClient
 	end
 	
 	def attach	
-			@d.print("attach function")
 			attach_at_commands = [	"AT+CPIN?", 
 														"AT+CREG?", 
 														"AT+CGATT?", 
@@ -114,12 +111,11 @@ class GPRSClient
 		end
 	
 	def reset
-		@d.print('RESET')
 		
 		#Set reset pin
-		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(1.to_s)}
-		sleep 1.2
 		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(0.to_s)}
+		sleep 1.2
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(1.to_s)}
 		sleep 2
 		
 		reset_at_commands = [		"AT+CIPSTATUS", 
@@ -140,12 +136,11 @@ class GPRSClient
 	end
 	
 	def power
-		@d.print('power method start')
 		
 		#Turn on pin power
-		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(1.to_s)}
-		sleep 1.2
 		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(0.to_s)}
+		sleep 1.2
+		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(1.to_s)}
 		sleep 2
 		
 		reset_at_commands = [		"AT&F0", 
@@ -173,7 +168,7 @@ class GPRSClient
 				loop do
 				
 					input_string = @gprs_comm.readline
-					p "    " + input_string
+					#p "    " + input_string
 					if input_string.include?(expected_string)
 						return true
 					end
@@ -212,14 +207,12 @@ class GPRSClient
 					return false 
 		end
 		
-		@d.print(total_length)
-		@d.print(data.length)
-		@d.print(headers_arr.length)
+		
 		@d.print(headers_arr + "\n" + data)
-		#@d.print(data)
+		
 
 		@gprs_comm.writeline("AT+CIPSEND=#{total_length}")
-		sleep 3
+		sleep 1
 		@gprs_comm.write(headers_arr + "\n" + data)
 		if !wait_resp(10,"SEND OK")
 					return false 
@@ -234,7 +227,7 @@ class GPRSClient
 					loop do
 					
 						input_string = @gprs_comm.readline
-						@d.print(input_string) 
+						 
 					
 						if input_string.include?("HTTP")
 							if ! input_string.include?("2")
@@ -259,8 +252,7 @@ class GPRSClient
 				input_string = @gprs_comm.readline
 				data_response += input_string
 				internal_count += input_string.length
-				@d.print(input_string)
-				@d.print(internal_count)
+				
 				
 			
 			end			
@@ -269,7 +261,7 @@ class GPRSClient
 
 
 		
-		sleep 5
+		sleep 2
 		@gprs_comm.writeline("AT+CIPCLOSE")
 		if !wait_resp(10,"CLOSE OK")
 					@d.print("asdasd")
