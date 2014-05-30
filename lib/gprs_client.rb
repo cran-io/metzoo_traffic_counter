@@ -32,8 +32,8 @@ class GPRSClient
 		File.open("/sys/class/gpio/gpio#{@pin_reset}/direction","w"){|a| a.write("out")}
 		File.open("/sys/class/gpio/gpio#{@pin_power}/direction","w"){|a| a.write("out")}
 
-		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(0.to_s)}
-		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(0.to_s)}
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(1.to_s)}
+		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(1.to_s)}
 		
 		
 		state = :init_state																			#States of the init state machine 
@@ -113,9 +113,9 @@ class GPRSClient
 	def reset
 		
 		#Set reset pin
-		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(1.to_s)}
-		sleep 1.2
 		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(0.to_s)}
+		sleep 1.2
+		File.open("/sys/class/gpio/gpio#{@pin_reset}/value","w"){|a| a.write(1.to_s)}
 		sleep 2
 		
 		reset_at_commands = [		"AT+CIPSTATUS", 
@@ -138,9 +138,9 @@ class GPRSClient
 	def power
 		
 		#Turn on pin power
-		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(1.to_s)}
-		sleep 1.2
 		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(0.to_s)}
+		sleep 1.2
+		File.open("/sys/class/gpio/gpio#{@pin_power}/value","w"){|a| a.write(1.to_s)}
 		sleep 2
 		
 		reset_at_commands = [		"AT&F0", 
@@ -257,7 +257,7 @@ class GPRSClient
 			
 			end			
 			data_response += "}"
-			#@d.print(data_response)	
+			@d.print(data_response)	
 
 
 		

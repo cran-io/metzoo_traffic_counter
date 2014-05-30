@@ -1,3 +1,4 @@
+#!/usr/bin/ruby
 require 'json'
 require 'time'
 require 'io/wait'
@@ -77,7 +78,7 @@ traffic_count_thread = Thread.new do
  					end 			
 				end
 			end
-		
+
 			if Time.now - delta_time > _60_SECONDS || time_flag 
  				delta_time = Time.now
  				new_traffic_event.signal
@@ -113,7 +114,7 @@ end
 loop do
 	sleep 10
 	p	"Still alive!"
+	p time
 end
  #[gprs_thread,traffic_count_thread,gps_thread].each{|t| t.join}
-
 

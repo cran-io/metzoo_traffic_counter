@@ -127,10 +127,10 @@ end
 			when FIRST
 				value_first = @adc_first.read.to_i
 				
-				if !@flag_first && value_first > (@adc_threshold_first + 6)  
+				if !@flag_first && value_first > (@adc_threshold_first + 2)  
 					@flag_first = true
 					return true
-				elsif @flag_first &&  value_first < (@adc_threshold_first + 5)
+				elsif @flag_first &&  value_first < (@adc_threshold_first + 1)
 					@flag_first = false
 				end
 				
@@ -139,10 +139,10 @@ end
 			when SECOND
 				value_second = @adc_second.read.to_i
 
-				if !@flag_second && value_second > (@adc_threshold_second + 6)  
+				if !@flag_second && value_second > (@adc_threshold_second + 2)  
 					@flag_second = true
 					return true
-				elsif @flag_second &&  value_second < (@adc_threshold_second + 5)
+				elsif @flag_second &&  value_second < (@adc_threshold_second + 1)
 					@flag_second = false
 				end
 				
@@ -157,8 +157,10 @@ end
 class ADC
 
   def initialize(number)
-        `echo cape-bone-iio > /sys/devices/bone_capemgr.9/slots`
-        @path="/sys/devices/ocp.3/helper.14/AIN" + number.to_s
+    `echo cape-bone-iio > /sys/devices/bone_capemgr.9/slots`
+    `rm /home/traffic/metzoo_traffic_counter/adcs`
+   	`ln -s /sys/devices/ocp.3/helper.* /home/traffic/metzoo_traffic_counter/adcs`
+	@path="/home/traffic/metzoo_traffic_counter/adcs/AIN" + number.to_s
   end
 
   def read
